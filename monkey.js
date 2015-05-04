@@ -56,6 +56,7 @@
 
         nodeInfo = nodeInfo || {};
         nodeInfo.path = nodeInfo.path || [];
+        nodeInfo.root = nodeInfo.root || node;
 
         var childList = node && getChildren(node);
 
@@ -91,7 +92,10 @@
           if (typeof childList.forEach === 'function') {
             childList.forEach(function(curObj, index) {
               recurse(curObj, func, {
-                parent: node, index: index, path: nodeInfo.path.concat(index)
+                parent: node,
+                index: index,
+                path: nodeInfo.path.concat(index),
+                root: nodeInfo.root
               }, newChildren);
             });
           }
@@ -99,7 +103,10 @@
           else if (isArrayLike(childList)) {
             for (var i = 0, len = childList.length; i < len; i++) {
               recurse(childList[i], func, {
-                parent: node, index: i, path: nodeInfo.path.concat(i)
+                parent: node,
+                index: i,
+                path: nodeInfo.path.concat(i),
+                root: nodeInfo.root
               }, newChildren);
             }
           }
@@ -111,7 +118,10 @@
               data = childList.next();
               //TODO: is there any need for an `index` or otherwise with nodeInfo here?
               recurse(data.value[0], func, {
-                parent: node, index: idx++, path: nodeInfo.path.concat(idx)
+                parent: node,
+                index: idx++,
+                path: nodeInfo.path.concat(idx),
+                root: nodeInfo.root
               }, newChildren);
             }
           }
@@ -125,7 +135,10 @@
                 //      useful, although having separate could distinguish).
                 //      Or possibly fill out both key and index with same value?
                 recurse(childList[k], func, {
-                  parent: node, key: k, path: nodeInfo.path.concat(k)
+                  parent: node,
+                  key: k,
+                  path: nodeInfo.path.concat(k),
+                  root: nodeInfo.root
                 }, newChildren);
               });
             }
@@ -133,7 +146,10 @@
               for (var k in childList) {
                 if (childList.hasOwnProperty(k)) {
                   recurse(childList[k], func, {
-                    parent: node, key: k, path: nodeInfo.path.concat(k)
+                    parent: node,
+                    key: k,
+                    path: nodeInfo.path.concat(k),
+                    root: nodeInfo.root
                   }, newChildren);
                 }
               }
