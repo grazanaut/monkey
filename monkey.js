@@ -1,5 +1,7 @@
-(function(global, define, module) {
+(function() {
   "use strict";
+
+  var context = this;
 
  /**
   * @private
@@ -195,22 +197,58 @@
     return !!first(rootNode, compareFunc, opts);
   }
 
+ /**
+  * @description
+  *   Creates a new tree with the same layout, but whose nodes are the result
+  *   of applying a provided function which is called for each node.
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} compareFn.   The comparison function.
+  *   The function is invoked on each node with the arguments "node" (the current)
+  *   node, and "parentNode" (the immediate ancestor of the current node). If the
+  *   compareFn function returns `true`, iteration is stopped the `some` method
+  *   returns `true`
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  */
+  function map(rootNode, func, opts) {
+    //TODO: only works for Array children at the moment
+    //      - need to determine a way for it to work
+    //        for object map and iterator
+    //        (iterator may be easy, object map will probably
+    //        require that index/key be passed in to func, and also
+    //        need to decide if we will be "intelligent" with creating
+    //        children collection container as either Array or Object
+    //        automatically or by some other means)
+    forEach(rootNode, function(currentNode, parentNode) {
+      func(currentNode, parentNode);
+    }, opts);
+  }
 
   var exports = {
     forEach: forEach,
-    first: first
+    first: first,
+    some: some
   };
 
-  if (module) {
-    module.exports = exports;
+  if (this.module) {
+    this.module.exports = exports;
   }
-  else if (typeof define === 'function' && define.amd) {
-    define('monkey', [], function(require, exports, module) {
+  else if (typeof this.define === 'function' && this.define.amd) {
+    this.define('monkey', [], function(require, exports, module) {
       module.exports = exports;
     });
   }
   else {
-    global.Prime8 = exports;
+    this.Prime8 = exports;
   }
 
-}(window || global || self || this, define, module));
+}).call(this);
