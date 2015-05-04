@@ -38,19 +38,39 @@
     recurse: function(getChildren, opts) {
 
       var depthFirstOption = opts && opts.depthFirst;
+      var method = opts && opts._method;
 
-      var recurse = function(node, func, parentNode) {
+      //Note: 'collection' is only relevant for the 'map' function, and
+      //      is the collection this node belongs to in the new mapped tree
+      //      structure
+      var recurse = function(node, func, parentNode, collection) {
 
         if (!func) {
           return; //No func, nothing to do
         }
 
-        //strict equals false (so `undefined` is default of true)
-        if (depthFirstOption === false) {
-          func(node, parentNode);
+        var childList = node && getChildren(node);
+
+        //Note: newChildren is only relevant for the 'map' function, and
+        //      is the collection within this node that the node's newly mapped
+        //      children will be placed in. It is passed as an argument to func()
+        //      and should be assigned to a property in the new tree within
+        //      that map function.
+        //      funcResult is also only relevant for the 'map' function (other
+        //      functions which return results such as some/first/etc do so
+        //      by using exception throwing), and will contain the newly created
+        //      map object to be added to the `collection` (parent node's children)
+        var newChildren;
+        var funcResult;
+        if (childList && method === map) {
+          newChildren = [];
         }
 
-        var childList = node && getChildren(node);
+        //strict equals false (so `undefined` is default of true)
+        if (depthFirstOption === false) {
+          funcResult = func(node, parentNode, newChildren);
+        }
+
         if (childList) {
 
           //cater for children collection to have
@@ -62,13 +82,13 @@
           //has forEach method
           if (typeof childList.forEach === 'function') {
             childList.forEach(function(curObj) {
-              recurse(curObj, func, node);
+              recurse(curObj, func, node, newChildren);
             });
           }
           //array-like collection requiring loop
           else if (isArrayLike(childList)) {
             for (var i = 0, len = childList.length; i < len; i++) {
-              recurse(childList[i], func, node);
+              recurse(childList[i], func, node, newChildren);
             }
           }
           //iterator/generator looping
@@ -76,20 +96,20 @@
             var data = {};
             while (!data.done) {
               data = childList.next();
-              recurse(data.value[0], func, node);
+              recurse(data.value[0], func, node, newChildren);
             }
           }
           //collection based on object with keys
           else {
             if (typeof Object.keys === 'function' && typeof Array.protoytpe.forEach === 'function') {
               Object.keys(childList).forEach(function(k) {
-                recurse(childList[k], func, node);
+                recurse(childList[k], func, node, newChildren);
               });
             }
             else {
               for (var k in childList) {
                 if (childList.hasOwnProperty(k)) {
-                  recurse(childList[k], func, node);
+                  recurse(childList[k], func, node, newChildren);
                 }
               }
             }
@@ -99,7 +119,12 @@
 
         //strict equals false (so `undefined` is default of true)
         if (depthFirstOption !== false) {
-          func(node, parentNode);
+          funcResult = func(node, parentNode, newChildren);
+        }
+
+        if (collection && funcResult) {
+          //collection will be true for all except rootNode
+          collection.push(funcResult);
         }
 
       };
@@ -112,7 +137,7 @@
 
  /**
   * @description
-  *   Applies a function to each node in a tree
+  *   Applies a function to each node in a tree. Always iterates every node.
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} func.   The function to apply to each node.
   *   The function is invoked on each node with the arguments "node" (the current)
@@ -125,6 +150,8 @@
   *   depth-first traversal, or false for breadth-first traversal
   */
   function forEach(rootNode, func, opts) {
+    opts = opts || {};
+    opts._method = opts._method || forEach;
     var getChildren = methodMaker.getChildren(opts && opts.children);
     var recurse = methodMaker.recurse(getChildren, opts);
     try {
@@ -140,7 +167,8 @@
  /**
   * @description
   *   Applies a function to each node in a tree, stopping and returning the first
-  *   node where the function returns `true`
+  *   node where the function returns `true`. Due to this, it does not always
+  *   iterate every node.
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
@@ -160,6 +188,8 @@
   *   be done on each node before traversing its children
   */
   function first(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || first;
     var foundNode;
     forEach(rootNode, function(current, parent) {
       if (compareFunc(current, parent)) {
@@ -172,9 +202,37 @@
 
  /**
   * @description
+  *   Applies a function to each node in a tree, returning the last
+  *   node where the function returns `true`. Always iterates every node.
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} compareFn.   The comparison function.
+  *   The function is invoked on each node with the arguments "node" (the current)
+  *   node, and "parentNode" (the immediate ancestor of the current node). The
+  *   last node for which the compareFn function returns `true` is returned.
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  */
+  function last(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || last;
+    var foundNode;
+    forEach(rootNode, function(current, parent) {
+      if (compareFunc(current, parent)) {
+        foundNode = current;
+      }
+    }, opts);
+    return foundNode;
+  }
+
+ /**
+  * @description
   *   Applies a function to each node in a tree, stopping and returning `true`
   *   if the comparison function returns `true` for any of the nodes, otherwise
-  *   returning `false`
+  *   returning `false`. Due to this, it does not always iterate every node.
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
@@ -194,13 +252,17 @@
   *   be done on each node before traversing its children
   */
   function some(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || some;
     return !!first(rootNode, compareFunc, opts);
   }
 
  /**
   * @description
-  *   Creates a new tree with the same layout, but whose nodes are the result
-  *   of applying a provided function which is called for each node.
+  *   Applies a function to each node in a tree, returning `true`
+  *   if the comparison function returns `true` for every single nodes. Stops
+  *   iterating and returns false if any node returns false. As a result it does
+  *   not always iterate every node.
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
@@ -219,7 +281,41 @@
   *   (i.e. not depth-first) is likely to be more efficient as the comparison will
   *   be done on each node before traversing its children
   */
+  function every(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || every;
+    return !first(rootNode, function (current, parent) {
+      return !(compareFunc(current, parent));
+    }, opts);
+  }
+
+
+ /**
+  * @description
+  *   Creates a new tree with the same layout, but whose nodes are the result
+  *   of applying a provided function which is called for each node. Always
+  *   iterates every node.
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} func.   The mapping function which should
+  *   return an object to be placed in the equivalent location in a new tree structure.
+  *   The function is invoked on each node with the arguments "node" (the current)
+  *   node, "parentNode" (the immediate ancestor of the current node), and
+  *   "childrenArray" - the new array of children for this node (which would
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  */
   function map(rootNode, func, opts) {
+    opts = opts || {};
+    opts._method = opts._method || map;
     //TODO: only works for Array children at the moment
     //      - need to determine a way for it to work
     //        for object map and iterator
@@ -228,15 +324,31 @@
     //        need to decide if we will be "intelligent" with creating
     //        children collection container as either Array or Object
     //        automatically or by some other means)
-    forEach(rootNode, function(currentNode, parentNode) {
-      func(currentNode, parentNode);
+    var resultRoot;
+    forEach(rootNode, function(currentNode, parentNode, childrenArray) {
+      var result = func(currentNode, parentNode, childrenArray);
+      if (!parentNode) {
+        resultRoot = result;
+      }
+      return result;
     }, opts);
+    return resultRoot;
+    /*
+     * func returns object
+     * each *parent* needs to be passed a children array
+     * children array needs to be populated with children
+     * func responsible for placing children array onto parent
+     * **** start by putting this in `recurse` then see if it can be moved out
+     */
   }
 
   var exports = {
     forEach: forEach,
     first: first,
-    some: some
+    last: last,
+    some: some,
+    every: every,
+    map: map
   };
 
   if (this.module) {
