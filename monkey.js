@@ -15,6 +15,11 @@
    return typeof o.length === 'number';
  }
 
+ //NodeInfo:
+ // - parent (parent node)
+ // - index/key
+ // - path eg by index: [4, 2, 6, 7, 1] or key: ['cars', 'colours']
+
  /**
   * @private
   */
@@ -43,11 +48,14 @@
       //Note: 'collection' is only relevant for the 'map' function, and
       //      is the collection this node belongs to in the new mapped tree
       //      structure
-      var recurse = function(node, func, parentNode, collection) {
+      var recurse = function(node, func, nodeInfo, collection) {
 
         if (!func) {
           return; //No func, nothing to do
         }
+
+        nodeInfo = nodeInfo || {};
+        nodeInfo.path = nodeInfo.path || [];
 
         var childList = node && getChildren(node);
 
@@ -68,7 +76,7 @@
 
         //strict equals false (so `undefined` is default of true)
         if (depthFirstOption === false) {
-          funcResult = func(node, parentNode, newChildren);
+          funcResult = func(node, nodeInfo, newChildren);
         }
 
         if (childList) {
@@ -81,35 +89,52 @@
 
           //has forEach method
           if (typeof childList.forEach === 'function') {
-            childList.forEach(function(curObj) {
-              recurse(curObj, func, node, newChildren);
+            childList.forEach(function(curObj, index) {
+              recurse(curObj, func, {
+                parent: node, index: index, path: nodeInfo.path.concat(index)
+              }, newChildren);
             });
           }
           //array-like collection requiring loop
           else if (isArrayLike(childList)) {
             for (var i = 0, len = childList.length; i < len; i++) {
-              recurse(childList[i], func, node, newChildren);
+              recurse(childList[i], func, {
+                parent: node, index: i, path: nodeInfo.path.concat(i)
+              }, newChildren);
             }
           }
           //iterator/generator looping
           else if (typeof childList.next === 'function') {
             var data = {};
+            var idx = 0;
             while (!data.done) {
               data = childList.next();
-              recurse(data.value[0], func, node, newChildren);
+              //TODO: is there any need for an `index` or otherwise with nodeInfo here?
+              recurse(data.value[0], func, {
+                parent: node, index: idx++, path: nodeInfo.path.concat(idx)
+              }, newChildren);
             }
           }
           //collection based on object with keys
           else {
             if (typeof Object.keys === 'function' && typeof Array.protoytpe.forEach === 'function') {
               Object.keys(childList).forEach(function(k) {
-                recurse(childList[k], func, node, newChildren);
+                //TODO: should `key` in nodeInfo be `index` to normalise with
+                //      array-iterations as above? (might have arrays and maps
+                //      in the same tree, so having same prop name could be
+                //      useful, although having separate could distinguish).
+                //      Or possibly fill out both key and index with same value?
+                recurse(childList[k], func, {
+                  parent: node, key: k, path: nodeInfo.path.concat(k)
+                }, newChildren);
               });
             }
             else {
               for (var k in childList) {
                 if (childList.hasOwnProperty(k)) {
-                  recurse(childList[k], func, node, newChildren);
+                  recurse(childList[k], func, {
+                    parent: node, key: k, path: nodeInfo.path.concat(k)
+                  }, newChildren);
                 }
               }
             }
@@ -119,10 +144,10 @@
 
         //strict equals false (so `undefined` is default of true)
         if (depthFirstOption !== false) {
-          funcResult = func(node, parentNode, newChildren);
+          funcResult = func(node, nodeInfo, newChildren);
         }
 
-        if (collection && funcResult) {
+        if (collection && funcResult && method === map) {
           //collection will be true for all except rootNode
           collection.push(funcResult);
         }
@@ -141,7 +166,8 @@
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} func.   The function to apply to each node.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, and "parentNode" (the immediate ancestor of the current node).
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc).
   * @param {Object}          [opts].         Options object
   * @param {String|Function} [opts.children] Default 'children'. The name of
   *   the "children" property in the tree, or a function to retrieve the
@@ -172,7 +198,8 @@
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, and "parentNode" (the immediate ancestor of the current node). If the
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). If the
   *   compareFn function returns `true`, iteration is stopped and the matching
   *   node is returned
   * @param {Object}          [opts].         Options object
@@ -186,13 +213,14 @@
   *   is similar regardless of whether the node is a leaf or not, breadth-first
   *   (i.e. not depth-first) is likely to be more efficient as the comparison will
   *   be done on each node before traversing its children
+  * @return {Object}
   */
   function first(rootNode, compareFunc, opts) {
     opts = opts || {};
     opts._method = opts._method || first;
     var foundNode;
-    forEach(rootNode, function(current, parent) {
-      if (compareFunc(current, parent)) {
+    forEach(rootNode, function(current, nodeInfo) {
+      if (compareFunc(current, nodeInfo)) {
         foundNode = current;
         throw StopTraversal;
       }
@@ -207,7 +235,8 @@
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, and "parentNode" (the immediate ancestor of the current node). The
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). The
   *   last node for which the compareFn function returns `true` is returned.
   * @param {Object}          [opts].         Options object
   * @param {String|Function} [opts.children] Default 'children'. The name of
@@ -215,13 +244,14 @@
   *   children for a node.
   * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
   *   depth-first traversal, or false for breadth-first traversal.
+  * @return {Object}
   */
   function last(rootNode, compareFunc, opts) {
     opts = opts || {};
     opts._method = opts._method || last;
     var foundNode;
-    forEach(rootNode, function(current, parent) {
-      if (compareFunc(current, parent)) {
+    forEach(rootNode, function(current, nodeInfo) {
+      if (compareFunc(current, nodeInfo)) {
         foundNode = current;
       }
     }, opts);
@@ -236,7 +266,8 @@
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, and "parentNode" (the immediate ancestor of the current node). If the
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). If the
   *   compareFn function returns `true`, iteration is stopped the `some` method
   *   returns `true`
   * @param {Object}          [opts].         Options object
@@ -250,6 +281,7 @@
   *   is similar regardless of whether the node is a leaf or not, breadth-first
   *   (i.e. not depth-first) is likely to be more efficient as the comparison will
   *   be done on each node before traversing its children
+  * @return {Boolean}
   */
   function some(rootNode, compareFunc, opts) {
     opts = opts || {};
@@ -266,7 +298,8 @@
   * @param {Object}          rootNode.       The base/root node of the tree
   * @param {Function(Object,Object)} compareFn.   The comparison function.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, and "parentNode" (the immediate ancestor of the current node). If the
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). If the
   *   compareFn function returns `true`, iteration is stopped the `some` method
   *   returns `true`
   * @param {Object}          [opts].         Options object
@@ -280,12 +313,13 @@
   *   is similar regardless of whether the node is a leaf or not, breadth-first
   *   (i.e. not depth-first) is likely to be more efficient as the comparison will
   *   be done on each node before traversing its children
+  * @return {Boolean}
   */
   function every(rootNode, compareFunc, opts) {
     opts = opts || {};
     opts._method = opts._method || every;
-    return !first(rootNode, function (current, parent) {
-      return !(compareFunc(current, parent));
+    return !first(rootNode, function (current, nodeInfo) {
+      return !(compareFunc(current, nodeInfo));
     }, opts);
   }
 
@@ -299,7 +333,8 @@
   * @param {Function(Object,Object)} func.   The mapping function which should
   *   return an object to be placed in the equivalent location in a new tree structure.
   *   The function is invoked on each node with the arguments "node" (the current)
-  *   node, "parentNode" (the immediate ancestor of the current node), and
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc), and
   *   "childrenArray" - the new array of children for this node (which would
   * @param {Object}          [opts].         Options object
   * @param {String|Function} [opts.children] Default 'children'. The name of
@@ -312,6 +347,7 @@
   *   is similar regardless of whether the node is a leaf or not, breadth-first
   *   (i.e. not depth-first) is likely to be more efficient as the comparison will
   *   be done on each node before traversing its children
+  * @return {Object}
   */
   function map(rootNode, func, opts) {
     opts = opts || {};
@@ -325,30 +361,60 @@
     //        children collection container as either Array or Object
     //        automatically or by some other means)
     var resultRoot;
-    forEach(rootNode, function(currentNode, parentNode, childrenArray) {
-      var result = func(currentNode, parentNode, childrenArray);
-      if (!parentNode) {
+    forEach(rootNode, function(currentNode, nodeInfo, childrenArray) {
+      var result = func(currentNode, nodeInfo, childrenArray);
+      if (!nodeInfo || !nodeInfo.parent) {
         resultRoot = result;
       }
       return result;
     }, opts);
     return resultRoot;
-    /*
-     * func returns object
-     * each *parent* needs to be passed a children array
-     * children array needs to be populated with children
-     * func responsible for placing children array onto parent
-     * **** start by putting this in `recurse` then see if it can be moved out
-     */
   }
+  /*
+   * function altMap() {
+
+    var resultRoot;
+    forEach(rootNode, function(currentNode, nodeInfo, childrenArray) {
+
+      var childrenArray = getChildrenArray(currentNode);
+
+      var result = func(currentNode, nodeInfo, childrenArray);
+      if (!nodeInfo.parent) {
+        resultRoot = result;
+      }
+      return result;
+    }, opts);
+    return resultRoot;
+
+   * }
+   */
 
   var exports = {
     forEach: forEach,
-    first: first,
-    last: last,
+    //first: first, //private in super-iter? (returns [v, k]) - used for eg find() which returns first()[0]
+    //last: last, //private in super-iter? (returns [v, k]) - used for eg findLast() which returns last()[0]
+    find: first,
+    findLast: last,
     some: some,
     every: every,
     map: map
+    //TODO:
+    //filter (does this make sense? what about non-leaf nodes?)
+    //takeWhile
+    //dropWhile
+    //reduce??
+    //invoke??
+    //pluck??
+    //sum??
+    //
+    //
+    //Also - leaf-only methods? These can probably be done using the
+    //       methods already there. BUT perhaps some convenience methods
+    //       could be useful?
+    //NOT DOING:
+    //indexOf, findIndex, lastIndexOf, findLastIndex
+    //toArray - **could do this? flatten tree? have leaf-only option?
+    //zip
   };
 
   if (this.module) {
