@@ -1,6 +1,3 @@
-angular.module('pageup.walk-tree', [])
-	.provider('walkTree', function() {
-
 		/* base class - can be extracted out if useful */
 		function baseTree(rootNode, opts) {
 
@@ -81,4 +78,3 @@ angular.module('pageup.walk-tree', [])
 		};
 
 
-	});
