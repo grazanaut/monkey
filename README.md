@@ -1,4 +1,4 @@
-# monkey
+# monkey/prim8
 Functional iterator (ala underscore.js, forEach, map, reduce, etc) but for trees
 
 # Why monkey? Why Prim8?
