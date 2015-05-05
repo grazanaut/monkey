@@ -540,6 +540,8 @@
     //last: last, //private in super-iter? (returns [v, k]) - used for eg findLast() which returns last()[0]
     find: first,
     findLast: last,
+    pathTo: pathTo,
+    lastPathTo: lastPathTo,
     some: some,
     every: every,
     map: map,

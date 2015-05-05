@@ -3,6 +3,7 @@ Prime8.forEach(testTree, function(obj) { console.log(obj.name); }, { depthFirst:
 Prime8.some(testTree, function(obj) { return obj.name.match(/3/); });
 Prime8.first(testTree, function(obj) { return obj.name.match(/3/); });
 Prime8.first(testTree, function(obj) { return obj.name.match(/3/); }, { depthFirst: false} );
+Prim8.pathTo(testTree, function(obj) { return obj.name.match(/3/); });
 Prime8.map(testTree, function(obj, nodeInfo, children) { return { desc: obj.name, childs: children, path: nodeInfo.path, nodeInfo: nodeInfo }; });
 Prime8.map(testTree, function(obj, nodeInfo, children) { return { desc: obj.name, childs: children, path: nodeInfo.path, nodeInfo: nodeInfo }; }, { depthFirst: false });
 Prime8.every(testTree, function(cur, par) { return cur.name.match(/A/); });
