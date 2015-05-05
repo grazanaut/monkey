@@ -244,6 +244,44 @@
     return foundNode;
   }
 
+  /**
+   * @description
+   *   Tree-equivalent to indexOf.
+   *   A path to a tree node is a set of indexes, rather than a single index,
+   *   so the returned value is an array of indexes (or keys)
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} compareFn.   The comparison function.
+  *   The function is invoked on each node with the arguments "node" (the current)
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). If the
+  *   compareFn function returns `true`, iteration is stopped and the matching
+  *   node is returned
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  * @return {Array}
+  */
+  function pathTo(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || pathTo;
+    var foundPath;
+    forEach(rootNode, function(current, nodeInfo) {
+      if (compareFunc(current, nodeInfo)) {
+        foundPath = nodeInfo.path;
+        throw StopTraversal;
+      }
+    }, opts);
+    return foundPath;
+  }
+
  /**
   * @description
   *   Applies a function to each node in a tree, returning the last
@@ -272,6 +310,43 @@
       }
     }, opts);
     return foundNode;
+  }
+
+  /**
+   * @description
+   *   Tree-equivalent to lastIndexOf.
+   *   A path to a tree node is a set of indexes, rather than a single index,
+   *   so the returned value is an array of indexes (or keys)
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} compareFn.   The comparison function.
+  *   The function is invoked on each node with the arguments "node" (the current)
+  *   node, and "nodeInfo" object (containing parent: the immediate ancestor of
+  *   the current node, index, key, etc). If the
+  *   compareFn function returns `true`, iteration is stopped and the matching
+  *   node is returned
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  * @return {Array}
+  */
+  function lastPathTo(rootNode, compareFunc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || lastPathTo;
+    var foundPath;
+    forEach(rootNode, function(current, nodeInfo) {
+      if (compareFunc(current, nodeInfo)) {
+        foundPath = nodeInfo.path;
+      }
+    }, opts);
+    return foundPath;
   }
 
  /**
