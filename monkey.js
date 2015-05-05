@@ -88,8 +88,11 @@
           // - object maps (for-in style behaviour), and
           // - iterator/generator looping
 
-          //has forEach method
-          if (typeof childList.forEach === 'function') {
+          //has forEach method (which must be same as Array.prototype.forEach,
+          // - without this, our iteration over the exports map in monkey() function
+          //   would not do as expected!)
+          if (typeof childList.forEach === 'function' &&
+              childList.forEach === Array.prototype.forEach) {
             childList.forEach(function(curObj, index) {
               recurse(curObj, func, {
                 parent: node,
@@ -127,7 +130,7 @@
           }
           //collection based on object with keys
           else {
-            if (typeof Object.keys === 'function' && typeof Array.protoytpe.forEach === 'function') {
+            if (typeof Object.keys === 'function' && typeof Array.prototype.forEach === 'function') {
               Object.keys(childList).forEach(function(k) {
                 //TODO: should `key` in nodeInfo be `index` to normalise with
                 //      array-iterations as above? (might have arrays and maps
@@ -176,6 +179,19 @@
 
   };
 
+  /**
+   * @param {Object}
+   * @param {Object}
+   */
+  function extend(obj1, obj2) {
+    forEach({ children: obj2 }, function(val, info) {
+      if (info.key) {
+        obj1[info.key] = val;
+      }
+    });
+    return obj1;
+  }
+
  /**
   * @description
   *   Applies a function to each node in a tree. Always iterates every node.
@@ -194,8 +210,14 @@
   function forEach(rootNode, func, opts) {
     opts = opts || {};
     opts._method = opts._method || forEach;
-    var getChildren = methodMaker.getChildren(opts && opts.children);
-    var recurse = methodMaker.recurse(getChildren, opts);
+    var options = opts;
+    if (this && this instanceof Monkey) {
+      options = extend({}, this.getOptions());
+      options = extend(options, opts);
+    }
+
+    var getChildren = methodMaker.getChildren(options && options.children);
+    var recurse = methodMaker.recurse(getChildren, options);
     try {
       recurse(rootNode, func, null);
     }
@@ -533,7 +555,6 @@
     return acc;
   }
 
-
   var exports = {
     forEach: forEach,
     //first: first, //private in super-iter? (returns [v, k]) - used for eg find() which returns first()[0]
@@ -545,7 +566,7 @@
     some: some,
     every: every,
     map: map,
-    reduce: reduce
+    reduce: reduce,
     //TODO:
     //filter (does this make sense? what about non-leaf nodes?)
     //takeWhile
@@ -562,7 +583,36 @@
     //indexOf, findIndex, lastIndexOf, findLastIndex
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
+    monkey: monkey
   };
+
+  function Monkey(rootNode, opts) {
+    this.getRootNode = function() {
+      return rootNode;
+    };
+    this.getOptions = function() {
+      return opts;
+    };
+  }
+  //TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
+  forEach({ children: exports }, function(fn, info) {
+    if (fn.children) return; //skip root
+    Monkey.prototype[info.key] = function() {
+      var args = [this.getRootNode()].concat(Array.prototype.slice.call(arguments, 0));
+      return fn.apply(this, args);
+    };
+  });
+
+
+  /**
+   * @description
+   *   Creates a tree-walking object - a wrapper around the tree with
+   *   the monkey functions as instance methods. Also houses options
+   */
+  function monkey(rootNode, opts) {
+    return new Monkey(rootNode, opts);
+  }
+
 
   if (this.module) {
     this.module.exports = exports;

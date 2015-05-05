@@ -25,3 +25,4 @@ prim8.reduce(testTree, function(acc, cur, ni) {
   console.log(acc);
   return acc;
 }, 0, { depthFirst: false });
+prim8.monkey(testTree).forEach(function(obj) { console.log(obj.name); });
