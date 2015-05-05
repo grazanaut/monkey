@@ -180,17 +180,30 @@
   };
 
   /**
-   * @param {Object}
-   * @param {Object}
+   * @param {Object} dest
+   * @param {Object} source
    */
-  function extend(obj1, obj2) {
-    forEach({ children: obj2 }, function(val, info) {
+  function extendOnce(dest, source) {
+		if (!source.children) source = { children: source };
+    forEach(source, function(val, info) {
       if (info.key) {
-        obj1[info.key] = val;
+        dest[info.key] = val;
       }
     });
     return obj1;
   }
+
+  /**
+   * @param {Object} obj1
+   * @param {Object} objN
+   */
+	function extend(obj1, obj2, objN) {
+		for (var i = 1, len = arguments.length; i < len; i++) {
+			extendOnce(obj1, arguments[i]);
+		}
+		return obj1;
+	}
+
 
  /**
   * @description
@@ -212,8 +225,7 @@
     opts._method = opts._method || forEach;
     var options = opts;
     if (this && this instanceof Monkey) {
-      options = extend({}, this.getOptions());
-      options = extend(options, opts);
+      options = extend({}, this._options, opts);
     }
 
     var getChildren = methodMaker.getChildren(options && options.children);
@@ -583,35 +595,37 @@
     //indexOf, findIndex, lastIndexOf, findLastIndex
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
-    monkey: monkey
+    monkey: monkey,
+		mixin: mixin
   };
-
-  function Monkey(rootNode, opts) {
-    this.getRootNode = function() {
-      return rootNode;
-    };
-    this.getOptions = function() {
-      return opts;
-    };
-  }
-  //TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
-  forEach({ children: exports }, function(fn, info) {
-    if (fn.children) return; //skip root
-    Monkey.prototype[info.key] = function() {
-      var args = [this.getRootNode()].concat(Array.prototype.slice.call(arguments, 0));
-      return fn.apply(this, args);
-    };
-  });
-
 
   /**
    * @description
    *   Creates a tree-walking object - a wrapper around the tree with
    *   the monkey functions as instance methods. Also houses options
    */
-  function monkey(rootNode, opts) {
-    return new Monkey(rootNode, opts);
-  }
+  var monkey = function Monkey(rootNode, opts) {
+		if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
+		if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
+    this._wrapped = rootNode;
+		this._options = opts;
+  };
+
+	function mixin(obj) {
+		if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
+		//TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
+		forEach(obj, function(fn, info) {
+			//TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
+			if (fn.children || typeof fn !== 'function') return; //skip root
+			Monkey[info.key] = fn;
+			Monkey.prototype[info.key] = function() {
+				var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
+				return fn.apply(this, args);
+			};
+		});
+	}
+
+	mixin(exports);
 
 
   if (this.module) {
