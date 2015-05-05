@@ -405,6 +405,60 @@
    * }
    */
 
+ /**
+  * @description
+  *   Reduces the value of the tree down to a single value, by applying a
+  *   function to each node in a tree, keeping the result as the `accumulator`
+  *   value to pass into the next call of the function.
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)} func.   The reduction function.
+  *   The function is invoked on each node with the arguments "acc" (the
+  *   accumulator/accumulated value) node, "currentNode", and "nodeInfo" object
+  *   (containing parent: the immediate ancestor of the current node, index,
+  *   key, etc).
+  * @param {any}             acc             The initial value of the accumulator
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  * @return {any}
+  */
+  function reduce(rootNode, func, acc, opts) {
+    opts = opts || {};
+    opts._method = opts._method || reduce;
+
+    var noAcc = typeof acc === 'undefined';
+
+    var mainReductionFunction = function(currentNode, nodeInfo) {
+      acc = func(acc, currentNode, nodeInfo);
+    };
+
+    //skip first value IIF noAcc (so we start with func(val1, val2) instead
+    //of func(null, val1) )
+    var skipper = function(currentNode, nodeInfo) {
+      //set acc to first value, and replace skipper with the
+      //actual function on first run
+      acc = currentNode;
+      reductionFunction = mainReductionFunction;
+    };
+
+    var reductionFunction = noAcc ? skipper : mainReductionFunction;
+
+    forEach(rootNode, function(currentNode, nodeInfo) {
+      reductionFunction(currentNode, nodeInfo);
+    }, opts);
+
+    return acc;
+  }
+
+
   var exports = {
     forEach: forEach,
     //first: first, //private in super-iter? (returns [v, k]) - used for eg find() which returns first()[0]
@@ -413,12 +467,12 @@
     findLast: last,
     some: some,
     every: every,
-    map: map
+    map: map,
+    reduce: reduce
     //TODO:
     //filter (does this make sense? what about non-leaf nodes?)
     //takeWhile
     //dropWhile
-    //reduce??
     //invoke??
     //pluck??
     //sum??
@@ -442,7 +496,7 @@
     });
   }
   else {
-    this.Prime8 = exports;
+    this.Prim8 = this.prim8 = exports;
   }
 
 }).call(this);
