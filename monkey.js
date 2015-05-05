@@ -116,7 +116,6 @@
             var idx = 0;
             while (!data.done) {
               data = childList.next();
-              //TODO: is there any need for an `index` or otherwise with nodeInfo here?
               recurse(data.value[0], func, {
                 parent: node,
                 index: idx++,
@@ -129,11 +128,6 @@
           else {
             if (typeof Object.keys === 'function' && typeof Array.protoytpe.forEach === 'function') {
               Object.keys(childList).forEach(function(k) {
-                //TODO: should `key` in nodeInfo be `index` to normalise with
-                //      array-iterations as above? (might have arrays and maps
-                //      in the same tree, so having same prop name could be
-                //      useful, although having separate could distinguish).
-                //      Or possibly fill out both key and index with same value?
                 recurse(childList[k], func, {
                   parent: node,
                   key: k,
@@ -368,14 +362,6 @@
   function map(rootNode, func, opts) {
     opts = opts || {};
     opts._method = opts._method || map;
-    //TODO: only works for Array children at the moment
-    //      - need to determine a way for it to work
-    //        for object map and iterator
-    //        (iterator may be easy, object map will probably
-    //        require that index/key be passed in to func, and also
-    //        need to decide if we will be "intelligent" with creating
-    //        children collection container as either Array or Object
-    //        automatically or by some other means)
     var resultRoot;
     forEach(rootNode, function(currentNode, nodeInfo, childrenArray) {
       var result = func(currentNode, nodeInfo, childrenArray);
@@ -386,24 +372,6 @@
     }, opts);
     return resultRoot;
   }
-  /*
-   * function altMap() {
-
-    var resultRoot;
-    forEach(rootNode, function(currentNode, nodeInfo, childrenArray) {
-
-      var childrenArray = getChildrenArray(currentNode);
-
-      var result = func(currentNode, nodeInfo, childrenArray);
-      if (!nodeInfo.parent) {
-        resultRoot = result;
-      }
-      return result;
-    }, opts);
-    return resultRoot;
-
-   * }
-   */
 
  /**
   * @description
@@ -461,30 +429,14 @@
 
   var exports = {
     forEach: forEach,
-    //first: first, //private in super-iter? (returns [v, k]) - used for eg find() which returns first()[0]
-    //last: last, //private in super-iter? (returns [v, k]) - used for eg findLast() which returns last()[0]
     find: first,
     findLast: last,
+    pathTo: pathTo,
+    lastPathTo: lastPathTo,
     some: some,
     every: every,
     map: map,
     reduce: reduce
-    //TODO:
-    //filter (does this make sense? what about non-leaf nodes?)
-    //takeWhile
-    //dropWhile
-    //invoke??
-    //pluck??
-    //sum??
-    //
-    //
-    //Also - leaf-only methods? These can probably be done using the
-    //       methods already there. BUT perhaps some convenience methods
-    //       could be useful?
-    //NOT DOING:
-    //indexOf, findIndex, lastIndexOf, findLastIndex
-    //toArray - **could do this? flatten tree? have leaf-only option?
-    //zip
   };
 
   if (this.module) {
@@ -496,7 +448,7 @@
     });
   }
   else {
-    this.Prim8 = this.prim8 = exports;
+    this.Prim8 = this.prim8 = this.monkey = exports;
   }
 
 }).call(this);
