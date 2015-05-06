@@ -178,13 +178,15 @@
    * @param {Object} source
    */
   function extendOnce(dest, source) {
-		if (!source.children) source = { children: source };
-    forEach(source, function(val, info) {
-      if (info.key) {
-        dest[info.key] = val;
-      }
-    });
-    return obj1;
+		if (source) {
+			if (!source.children) source = { children: source };
+			forEach(source, function(val, info) {
+				if (info.key) {
+					dest[info.key] = val;
+				}
+			});
+		}
+    return dest;
   }
 
   /**
