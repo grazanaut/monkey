@@ -628,8 +628,11 @@
 	});
 
 
-  if (this.module) {
-    this.module.exports = monkey;
+  if (typeof this.exports !== 'undefined') {
+		if (typeof this.module !== 'undefined' && this.module.exports) {
+			this.exports = this.module.exports = monkey;
+		}
+		this.exports.monkey = monkey;
   }
   else if (typeof this.define === 'function' && this.define.amd) {
     this.define('monkey', [], function(require, exports, module) {
