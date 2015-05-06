@@ -1,0 +1,15 @@
+{
+	"author": "Paul Graham",
+	"name": "monkey/prim8",
+	"version": "0.0.0",
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:grazanaut/monkey.git"
+	},
+	"main": "angular-restate.js",
+	"dependencies": {
+	},
+	"devDependencies": {
+	},
+	"ignore": []
+}
