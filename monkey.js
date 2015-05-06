@@ -12,7 +12,8 @@
   * @private
   */
  function isArrayLike(o) {
-   return typeof o.length === 'number';
+	 //function has length property (for arity) - we *don't* want it treated like array
+   return typeof o !== 'function' && typeof o.length === 'number';
  }
 
  var globalOpts;
@@ -224,14 +225,7 @@
   * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
   *   depth-first traversal, or false for breadth-first traversal
   */
-  function forEach(rootNode, func, opts) {
-    opts = opts || {};
-    opts._method = opts._method || forEach;
-    var options = opts;
-    if (this && this instanceof Monkey) {
-      options = extend({}, globalOpts, this._options, opts);
-    }
-
+  function forEachFixedOpts(rootNode, func, options) {
     var getChildren = methodMaker.getChildren(options && options.children);
     var recurse = methodMaker.recurse(getChildren, options);
     try {
@@ -242,6 +236,19 @@
         throw e;
       }
     }
+  }
+
+  function forEach(rootNode, func, opts) {
+    opts = opts || {};
+    opts._method = opts._method || forEach;
+    var options;
+    if (this && this instanceof Monkey) {
+      options = monkey({}).extendOpts(globalOpts, this._options, opts);
+    }
+    else {
+      options = monkey({}).extendOpts(globalOpts, opts);
+    }
+		forEachFixedOpts(rootNode, func, options);
   }
 
  /**
