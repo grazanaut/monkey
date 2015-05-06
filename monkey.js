@@ -243,6 +243,7 @@
       extendOpts(options, globalOpts);
       extendOpts(options, localOpts);
     }
+		return options;
   }
 
  /**
