@@ -15,6 +15,8 @@
    return typeof o.length === 'number';
  }
 
+ var globalOpts;
+
  //NodeInfo:
  // - parent (parent node)
  // - index/key
@@ -227,7 +229,7 @@
     opts._method = opts._method || forEach;
     var options = opts;
     if (this && this instanceof Monkey) {
-      options = extend({}, this._options, opts);
+      options = extend({}, globalOpts, this._options, opts);
     }
 
     var getChildren = methodMaker.getChildren(options && options.children);
@@ -595,6 +597,11 @@
 			};
 		});
 	}
+
+	monkey.globalOpts = function(opts) {
+		globalOpts = globalOpts || {};
+		extend(globalOpts, opts);
+	};
 
 	mixin({
     forEach: forEach,
