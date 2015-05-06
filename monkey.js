@@ -567,7 +567,34 @@
     return acc;
   }
 
-  var exports = {
+  /**
+   * @description
+   *   Creates a tree-walking object - a wrapper around the tree with
+   *   the monkey functions as instance methods. Also houses options
+   */
+  function Monkey(rootNode, opts) {
+		if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
+		if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
+    this._wrapped = rootNode;
+		this._options = opts;
+  }
+	var monkey = Monkey;
+
+	function mixin(obj) {
+		if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
+		//TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
+		forEach(obj, function(fn, info) {
+			//TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
+			if (fn.children || typeof fn !== 'function') return; //skip root
+			Monkey[info.key] = fn;
+			Monkey.prototype[info.key] = function() {
+				var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
+				return fn.apply(this, args);
+			};
+		});
+	}
+
+	mixin({
     forEach: forEach,
     //first: first, //private in super-iter? (returns [v, k]) - used for eg find() which returns first()[0]
     //last: last, //private in super-iter? (returns [v, k]) - used for eg findLast() which returns last()[0]
@@ -595,49 +622,20 @@
     //indexOf, findIndex, lastIndexOf, findLastIndex
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
-    monkey: monkey,
 		mixin: mixin
-  };
-
-  /**
-   * @description
-   *   Creates a tree-walking object - a wrapper around the tree with
-   *   the monkey functions as instance methods. Also houses options
-   */
-  var monkey = function Monkey(rootNode, opts) {
-		if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
-		if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
-    this._wrapped = rootNode;
-		this._options = opts;
-  };
-
-	function mixin(obj) {
-		if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
-		//TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
-		forEach(obj, function(fn, info) {
-			//TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
-			if (fn.children || typeof fn !== 'function') return; //skip root
-			Monkey[info.key] = fn;
-			Monkey.prototype[info.key] = function() {
-				var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
-				return fn.apply(this, args);
-			};
-		});
-	}
-
-	mixin(exports);
+	});
 
 
   if (this.module) {
-    this.module.exports = exports;
+    this.module.exports = monkey;
   }
   else if (typeof this.define === 'function' && this.define.amd) {
     this.define('monkey', [], function(require, exports, module) {
-      module.exports = exports;
+      module.exports = monkey;
     });
   }
   else {
-    this.Prim8 = this.prim8 = exports;
+    this.Prim8 = this.prim8 = this.monkey = monkey;
   }
 
 }).call(this);
