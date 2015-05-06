@@ -88,8 +88,11 @@
           // - object maps (for-in style behaviour), and
           // - iterator/generator looping
 
-          //has forEach method
-          if (typeof childList.forEach === 'function') {
+          //has forEach method (which must be same as Array.prototype.forEach,
+          // - without this, our iteration over the exports map in monkey() function
+          //   would not do as expected!)
+          if (typeof childList.forEach === 'function' &&
+              childList.forEach === Array.prototype.forEach) {
             childList.forEach(function(curObj, index) {
               recurse(curObj, func, {
                 parent: node,
@@ -126,7 +129,7 @@
           }
           //collection based on object with keys
           else {
-            if (typeof Object.keys === 'function' && typeof Array.protoytpe.forEach === 'function') {
+            if (typeof Object.keys === 'function' && typeof Array.prototype.forEach === 'function') {
               Object.keys(childList).forEach(function(k) {
                 recurse(childList[k], func, {
                   parent: node,
@@ -170,6 +173,32 @@
 
   };
 
+  /**
+   * @param {Object} dest
+   * @param {Object} source
+   */
+  function extendOnce(dest, source) {
+		if (!source.children) source = { children: source };
+    forEach(source, function(val, info) {
+      if (info.key) {
+        dest[info.key] = val;
+      }
+    });
+    return obj1;
+  }
+
+  /**
+   * @param {Object} obj1
+   * @param {Object} objN
+   */
+	function extend(obj1, obj2, objN) {
+		for (var i = 1, len = arguments.length; i < len; i++) {
+			extendOnce(obj1, arguments[i]);
+		}
+		return obj1;
+	}
+
+
  /**
   * @description
   *   Applies a function to each node in a tree. Always iterates every node.
@@ -188,8 +217,13 @@
   function forEach(rootNode, func, opts) {
     opts = opts || {};
     opts._method = opts._method || forEach;
-    var getChildren = methodMaker.getChildren(opts && opts.children);
-    var recurse = methodMaker.recurse(getChildren, opts);
+    var options = opts;
+    if (this && this instanceof Monkey) {
+      options = extend({}, this._options, opts);
+    }
+
+    var getChildren = methodMaker.getChildren(options && options.children);
+    var recurse = methodMaker.recurse(getChildren, options);
     try {
       recurse(rootNode, func, null);
     }
@@ -501,8 +535,34 @@
     return acc;
   }
 
+  /**
+   * @description
+   *   Creates a tree-walking object - a wrapper around the tree with
+   *   the monkey functions as instance methods. Also houses options
+   */
+  function Monkey(rootNode, opts) {
+		if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
+		if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
+    this._wrapped = rootNode;
+		this._options = opts;
+  }
+	var monkey = Monkey;
 
-  var exports = {
+	function mixin(obj) {
+		if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
+		//TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
+		forEach(obj, function(fn, info) {
+			//TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
+			if (fn.children || typeof fn !== 'function') return; //skip root
+			Monkey[info.key] = fn;
+			Monkey.prototype[info.key] = function() {
+				var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
+				return fn.apply(this, args);
+			};
+		});
+	}
+
+	mixin({
     forEach: forEach,
     find: first,
     findLast: last,
@@ -511,19 +571,37 @@
     some: some,
     every: every,
     map: map,
-    reduce: reduce
-  };
+    reduce: reduce,
+    //TODO:
+    //filter (does this make sense? what about non-leaf nodes?)
+    //takeWhile
+    //dropWhile
+    //invoke??
+    //pluck??
+    //sum??
+    //
+    //
+    //Also - leaf-only methods? These can probably be done using the
+    //       methods already there. BUT perhaps some convenience methods
+    //       could be useful?
+    //NOT DOING:
+    //indexOf, findIndex, lastIndexOf, findLastIndex
+    //toArray - **could do this? flatten tree? have leaf-only option?
+    //zip
+		mixin: mixin
+	});
+
 
   if (this.module) {
-    this.module.exports = exports;
+    this.module.exports = monkey;
   }
   else if (typeof this.define === 'function' && this.define.amd) {
     this.define('monkey', [], function(require, exports, module) {
-      module.exports = exports;
+      module.exports = monkey;
     });
   }
   else {
-    this.Prim8 = this.prim8 = this.monkey = exports;
+    this.Prim8 = this.prim8 = this.monkey = monkey;
   }
 
 }).call(this);
