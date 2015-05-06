@@ -1,0 +1,35 @@
+{
+  "name": "monkey",
+  "version": "0.0.0",
+  "description": "Recursive iterative functions for tree-like structures",
+  "main": "monkey.js",
+  "scripts": {
+    "test": "karma start karma.conf.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/grazanaut/monkey.git"
+  },
+  "keywords": [
+    "tree",
+    "iterator",
+    "recursive",
+    "functional",
+    "underscore",
+    "prim8"
+  ],
+  "author": "Paul Graham <grazanaut@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/grazanaut/monkey/issues"
+  },
+  "devDependencies": {
+    "karma": "~0.12.31",
+    "karma-chrome-launcher": "~0.1.8",
+    "jasmine-core": "~2.3.0",
+    "karma-jasmine": "~0.3.5",
+    "phantom": "~0.7.2",
+    "karma-phantomjs-launcher": "~0.1.4",
+    "karma-spec-reporter": "0.0.19"
+  }
+}
