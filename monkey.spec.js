@@ -70,7 +70,7 @@ describe('Tree Iterator', function() {
       expect(o).toEqual({ b: 2 });
     });
 
-    it('should be private (for now!)', function() {
+    it('should be private (for now! - while we settle on expected spec - while we settle on expected spec. Unstable until then!!!)', function() {
       expect(__.extend).toBeFalsy();
     });
 
@@ -101,12 +101,41 @@ describe('Tree Iterator', function() {
 
 	describe('map', function() {
 
-		it('should not simply return the original tree', function() {
+		it('should clone the tree structure', function() {
 			var result = monkey.map(testTree, function(node, info, children) {
-				return node;
+				var newNode = {};
+				for (var k in node) {
+					if (node.hasOwnProperty(k)) {
+						newNode[k] = node[k];
+					}
+				}
+				if (typeof children !== 'undefined') {
+					newNode.children = children;
+				}
+				return newNode;
 			});
 			expect(result).toEqual(testTree); //prove the same structure
 			expect(result).not.toBe(testTree); //prove its not the same object
+		});
+
+		it('should have same structure, but with objects as returned', function() {
+			var result = monkey.map(testTree, function(node, info, children) {
+				var newNode = {
+					id: node.name
+				};
+				if (typeof children !== 'undefined') {
+					newNode.children = children;
+				}
+				return newNode;
+			});
+			//first make sure we return something different to testTree (ensures that testTree
+			//has not been tainted or modified)
+			expect(result).not.toBe(testTree);
+			expect(result).not.toEqual(testTree);
+			expect(JSON.stringify(result)).not.toBe(JSON.stringify(testTree));
+			//We've changed the only property name from name to id. JSON string replace
+			//should have same effect, so test that
+			expect(JSON.stringify(result)).toBe(JSON.stringify(testTree).replace(/name/g, 'id'));
 		});
 	});
 
