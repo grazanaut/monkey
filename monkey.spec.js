@@ -99,4 +99,15 @@ describe('Tree Iterator', function() {
 
   });
 
+	describe('map', function() {
+
+		it('should not simply return the original tree', function() {
+			var result = monkey.map(testTree, function(node, info, children) {
+				return node;
+			});
+			expect(result).toEqual(testTree); //prove the same structure
+			expect(result).not.toBe(testTree); //prove its not the same object
+		});
+	});
+
 });

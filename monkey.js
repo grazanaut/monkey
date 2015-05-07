@@ -229,8 +229,22 @@
    * @param {Object} objN
    */
   function extend(obj1, obj2, objN) {
+		var opts = consolidateOptions(this, {});
+		var origChildrenGetter = methodMaker.getChildren(opts.children);
+
+		opts = methodOpts({ children: function(node, nodeInfo) {
+			//special case for extend - if no children in top-level node/root, we
+			//assume that we've been handed a standard flat object map where the "children"
+			//are the properties themselves
+			var children = origChildrenGetter(node, nodeInfo);
+			if (!nodeInfo.parent && !children) {
+				return node;
+			}
+			return children;
+		} }, extend);
+
     for (var i = 1, len = arguments.length; i < len; i++) {
-      extendOnce(obj1, arguments[i]);
+      extendOnce(obj1, arguments[i], opts);
     }
     return obj1;
   }
