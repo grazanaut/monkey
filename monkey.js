@@ -179,8 +179,17 @@
       return recurse;
 
     }
+		//TODO: remove mixin() and create method() method, which sets methodopts
+		//      and places method both on monkey and its prototype
 
   };
+
+  function methodOpts(opts, method) {
+    opts = opts || {};
+    opts._method = opts._method || method;
+    return opts;
+  }
+
 
   /**
    * @param {Object} dest
@@ -262,8 +271,7 @@
   *   depth-first traversal, or false for breadth-first traversal
   */
   function forEach(rootNode, func, opts) {
-    opts = opts || {};
-    opts._method = opts._method || forEach;
+    opts = methodOpts(opts, forEach);
     var options = consolidateOptions(this, opts);
     forEachFixedOpts(rootNode, func, options);
   }
@@ -307,8 +315,7 @@
   * @return {Object}
   */
   function first(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || first;
+    opts = methodOpts(opts, first);
     var foundNode;
     forEach(rootNode, function(current, nodeInfo) {
       if (compareFunc(current, nodeInfo)) {
@@ -345,8 +352,7 @@
   * @return {Array}
   */
   function pathTo(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || pathTo;
+    opts = methodOpts(opts, pathTo);
     var foundPath;
     forEach(rootNode, function(current, nodeInfo) {
       if (compareFunc(current, nodeInfo)) {
@@ -376,8 +382,7 @@
   * @return {Object}
   */
   function last(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || last;
+    opts = methodOpts(opts, last);
     var foundNode;
     forEach(rootNode, function(current, nodeInfo) {
       if (compareFunc(current, nodeInfo)) {
@@ -413,8 +418,7 @@
   * @return {Array}
   */
   function lastPathTo(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || lastPathTo;
+    opts = methodOpts(opts, lastPathTo);
     var foundPath;
     forEach(rootNode, function(current, nodeInfo) {
       if (compareFunc(current, nodeInfo)) {
@@ -450,8 +454,7 @@
   * @return {Boolean}
   */
   function some(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || some;
+    opts = methodOpts(opts, some);
     return !!first(rootNode, compareFunc, opts);
   }
 
@@ -482,13 +485,45 @@
   * @return {Boolean}
   */
   function every(rootNode, compareFunc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || every;
+    opts = methodOpts(opts, every);
     return !first(rootNode, function (current, nodeInfo) {
       return !(compareFunc(current, nodeInfo));
     }, opts);
   }
 
+ /**
+  * @description
+  *   Creates a key/value pair object where the key is the result of buildKey function
+  *   which is called for each node, and the value is the object itself. Always
+  *   iterates every node.
+  * @param {Object}          rootNode.       The base/root node of the tree
+  * @param {Function(Object,Object)|String} buildKey. A property name whose value
+  *   is to be used as the key, or function which returns a value to be used as the key
+  *   for each node
+  * @param {Object}          [opts].         Options object
+  * @param {String|Function} [opts.children] Default 'children'. The name of
+  *   the "children" property in the tree, or a function to retrieve the
+  *   children for a node.
+  * @param {Boolean}         [opts.depthFirst] Default true. True/undefined for
+  *   depth-first traversal, or false for breadth-first traversal.
+  *   Note: where it is more likely that a leaf node will match than other nodes,
+  *   depth-first is probably more efficient. However where the chance of a match
+  *   is similar regardless of whether the node is a leaf or not, breadth-first
+  *   (i.e. not depth-first) is likely to be more efficient as the comparison will
+  *   be done on each node before traversing its children
+  * @return {Object}
+  */
+  function indexBy(rootNode, buildKey, opts) {
+    opts = methodOpts(opts, indexBy);
+    var result = {};
+    forEach(rootNode, function(current, nodeInfo) {
+      var key = (typeof buildKey === 'string') ?
+                current[buildKey] :
+                buildKey(current, nodeInfo);
+      result[key] = current;
+    }, opts);
+    return result;
+  }
 
  /**
   * @description
@@ -516,8 +551,7 @@
   * @return {Object}
   */
   function map(rootNode, func, opts) {
-    opts = opts || {};
-    opts._method = opts._method || map;
+    opts = methodOpts(opts, map);
     //TODO: only works for Array children at the moment
     //      - need to determine a way for it to work
     //        for object map and iterator
@@ -581,8 +615,7 @@
   * @return {any}
   */
   function reduce(rootNode, func, acc, opts) {
-    opts = opts || {};
-    opts._method = opts._method || reduce;
+    opts = methodOpts(opts, reduce);
 
     var noAcc = typeof acc === 'undefined';
 
@@ -687,6 +720,7 @@
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
     mixin: mixin,
+    indexBy: indexBy, // If we ever add groupby or countby, check underscorejs implementation as example
     extend: extend //TODO: remove this until it has been *robustly* tested!!
   });
 
