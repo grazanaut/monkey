@@ -12,7 +12,8 @@
   * @private
   */
  function isArrayLike(o) {
-   return typeof o.length === 'number';
+   //function has length property (for arity) - we *don't* want it treated like array
+   return typeof o !== 'function' && typeof o.length === 'number';
  }
 
  var globalOpts;
@@ -60,7 +61,7 @@
         nodeInfo.path = nodeInfo.path || [];
         nodeInfo.root = nodeInfo.root || node;
 
-        var childList = node && getChildren(node);
+        var childList = node && getChildren(node, nodeInfo);
 
         //Note: newChildren is only relevant for the 'map' function, and
         //      is the collection within this node that the node's newly mapped
@@ -74,7 +75,7 @@
         var newChildren;
         var funcResult;
         if (childList && method === map) {
-          newChildren = [];
+         newChildren = [];
         }
 
         //strict equals false (so `undefined` is default of true)
@@ -178,16 +179,39 @@
   /**
    * @param {Object} dest
    * @param {Object} source
+   * @param {Object} opts
    */
-  function extendOnce(dest, source) {
-		if (source) {
-			if (!source.children) source = { children: source };
-			forEach(source, function(val, info) {
-				if (info.key) {
-					dest[info.key] = val;
-				}
-			});
-		}
+  function extendOnce(dest, source, opts) {
+    if (source) {
+      forEach(source, function(val, info) {
+        if (info.key) {
+          dest[info.key] = val;
+        }
+      }, opts);
+    }
+    return dest;
+  }
+
+  /**
+   * @description
+   *   Special extend case for opts - prevent infinite recursion when extending
+   *   opts object (which happens inside extend method). Also, opts may have a
+   *   'children' property which is *not* the children list, it is just another
+   *   property. What we actually want is to copy all top-level properties, so
+   *   we set 'children' to be the node itself
+   * @param {Object} dest
+   * @param {Object} source
+   */
+  function extendOpts(dest, source) {
+    if (source) {
+      //fixedOpts means extendOpts wont be called - here is where we prevent
+      //the recursion from going infinite
+      forEachFixedOpts(source, function(val, info) {
+        if (info.key) {
+          dest[info.key] = val;
+        }
+      }, { children: function(node, info) { if (!info.parent) return node; else return []; } });
+    }
     return dest;
   }
 
@@ -195,13 +219,26 @@
    * @param {Object} obj1
    * @param {Object} objN
    */
-	function extend(obj1, obj2, objN) {
-		for (var i = 1, len = arguments.length; i < len; i++) {
-			extendOnce(obj1, arguments[i]);
-		}
-		return obj1;
-	}
+  function extend(obj1, obj2, objN) {
+    for (var i = 1, len = arguments.length; i < len; i++) {
+      extendOnce(obj1, arguments[i]);
+    }
+    return obj1;
+  }
 
+  function consolidateOptions(context, localOpts) {
+    var options = {};
+    if (context && context instanceof Monkey) {
+      extendOpts(options, globalOpts);
+      extendOpts(options, context._options);
+      extendOpts(options, localOpts);
+    }
+    else {
+      extendOpts(options, globalOpts);
+      extendOpts(options, localOpts);
+    }
+    return options;
+  }
 
  /**
   * @description
@@ -221,11 +258,11 @@
   function forEach(rootNode, func, opts) {
     opts = opts || {};
     opts._method = opts._method || forEach;
-    var options = opts;
-    if (this && this instanceof Monkey) {
-      options = extend({}, globalOpts, this._options, opts);
-    }
+    var options = consolidateOptions(this, opts);
+    forEachFixedOpts(rootNode, func, options);
+  }
 
+  function forEachFixedOpts(rootNode, func, options) {
     var getChildren = methodMaker.getChildren(options && options.children);
     var recurse = methodMaker.recurse(getChildren, options);
     try {
@@ -545,33 +582,51 @@
    *   the monkey functions as instance methods. Also houses options
    */
   function Monkey(rootNode, opts) {
-		if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
-		if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
+    if (rootNode instanceof Monkey) return rootNode; //don't double-wrap
+    if (!(this instanceof Monkey)) return new Monkey(rootNode, opts); //standard way to do it monkey()
     this._wrapped = rootNode;
-		this._options = opts;
+    this._options = opts;
   }
-	var monkey = Monkey;
+  var monkey = Monkey;
 
-	function mixin(obj) {
-		if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
-		//TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
-		forEach(obj, function(fn, info) {
-			//TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
-			if (fn.children || typeof fn !== 'function') return; //skip root
-			Monkey[info.key] = fn;
-			Monkey.prototype[info.key] = function() {
-				var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
-				return fn.apply(this, args);
-			};
-		});
-	}
+  function mixin(obj) {
+    if (!obj.children) obj = { children: obj }; //allow for object without a single top-node to be passed in
+    //TODO: use MAP() here instead (use as a test case for object/key-mapping rather than array mapping)
+    forEach(obj, function(fn, info) {
+      //TODO: the skip below only allows FLAT object to be passed in. Reconsider this...
+      if (fn.children || typeof fn !== 'function') return; //skip root
+      Monkey[info.key] = fn;
+      Monkey.prototype[info.key] = function() {
+        var args = [this._wrapped].concat(Array.prototype.slice.call(arguments, 0));
+        return fn.apply(this, args);
+      };
+    });
+  }
 
-	monkey.globalOpts = function(opts) {
-		globalOpts = globalOpts || {};
-		extend(globalOpts, opts);
-	};
+  /**
+   * @description
+   *   Set default options for ALL instances of monkey and function calls
+   *   Note that opts passed into functions take precedence over opts
+   *   passed into the monkey constructor, which take precedence over
+   *   global opts
+   *   Note: globalOpts does NOT deep-nest values. Eg
+   *     var result = monkey.globalOpts({ a: { b: 2 }, z: 26 });
+   *     result = monkey.globalOpts({ a: { c: 3 } });
+   *     expect(result).toEqual({ a: { c: 3 }, z: 26 }); //B has been removed as A was replaced in its entirety
+   * @param {Object} opts The options to add/replace to the current globalOpts
+   * @returns {Object} The new full set of globalOpts
+   */
+  monkey.globalOpts = function(opts) {
+    globalOpts = globalOpts || {};
+    extendOpts(globalOpts, opts);
+    return globalOpts;
+  };
 
-	mixin({
+  monkey.restoreDefaults = function() {
+    globalOpts = null;
+  };
+
+  mixin({
     forEach: forEach,
     find: first,
     findLast: last,
@@ -597,15 +652,16 @@
     //indexOf, findIndex, lastIndexOf, findLastIndex
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
-		mixin: mixin
-	});
+    mixin: mixin,
+    extend: extend //TODO: remove this until it has been *robustly* tested!!
+  });
 
 
   if (typeof this.exports !== 'undefined') {
-		if (typeof this.module !== 'undefined' && this.module.exports) {
-			this.exports = this.module.exports = monkey;
-		}
-		this.exports.monkey = monkey;
+    if (typeof this.module !== 'undefined' && this.module.exports) {
+      this.exports = this.module.exports = monkey;
+    }
+    this.exports.monkey = monkey;
   }
   else if (typeof this.define === 'function' && this.define.amd) {
     this.define('monkey', [], function(require, exports, module) {
