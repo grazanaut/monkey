@@ -75,7 +75,7 @@
         var newChildren;
         var funcResult;
         if (childList && method === map) {
-          newChildren = [];
+         newChildren = [];
         }
 
         //strict equals false (so `undefined` is default of true)
@@ -243,7 +243,7 @@
       extendOpts(options, globalOpts);
       extendOpts(options, localOpts);
     }
-		return options;
+    return options;
   }
 
  /**
@@ -635,9 +635,27 @@
     });
   }
 
+  /**
+   * @description
+   *   Set default options for ALL instances of monkey and function calls
+   *   Note that opts passed into functions take precedence over opts
+   *   passed into the monkey constructor, which take precedence over
+   *   global opts
+   *   Note: globalOpts does NOT deep-nest values. Eg
+   *     var result = monkey.globalOpts({ a: { b: 2 }, z: 26 });
+   *     result = monkey.globalOpts({ a: { c: 3 } });
+   *     expect(result).toEqual({ a: { c: 3 }, z: 26 }); //B has been removed as A was replaced in its entirety
+   * @param {Object} opts The options to add/replace to the current globalOpts
+   * @returns {Object} The new full set of globalOpts
+   */
   monkey.globalOpts = function(opts) {
     globalOpts = globalOpts || {};
     extendOpts(globalOpts, opts);
+    return globalOpts;
+  };
+
+  monkey.restoreDefaults = function() {
+    globalOpts = null;
   };
 
   mixin({
@@ -668,7 +686,8 @@
     //indexOf, findIndex, lastIndexOf, findLastIndex
     //toArray - **could do this? flatten tree? have leaf-only option?
     //zip
-    mixin: mixin
+    mixin: mixin,
+    extend: extend //TODO: remove this until it has been *robustly* tested!!
   });
 
 
